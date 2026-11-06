@@ -84,6 +84,20 @@ wget -qO- https://raw.githubusercontent.com/Connecta-VPS/ConnectaRouter/main/ins
 
 ---
 
+## 🚦 Свои исключения (без VPN)
+
+Нужно, чтобы какой-то сайт или сервер работал напрямую — например, удалённый рабочий стол или банк? Добавьте домены в файл `/etc/connecta/direct.list`, по одному на строку:
+
+```sh
+mkdir -p /etc/connecta
+echo example.com >> /etc/connecta/direct.list
+xray-sub-update.sh
+```
+
+Поддомены учитываются автоматически: `example.com` включает и `rdp.example.com`. Файл не удаляется и не перезаписывается при переустановке.
+
+---
+
 ## ⚙️ Как это работает
 
 ```mermaid
