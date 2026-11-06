@@ -21,7 +21,7 @@ if [ "$SUB_URL" = "uninstall" ]; then
   /etc/init.d/xray-sub stop 2>/dev/null || true
   /etc/init.d/xray-sub disable 2>/dev/null || true
   rm -f /etc/init.d/xray-sub /usr/bin/xray-sub-update.sh
-  rm -rf "$DIR" /tmp/xray-sub
+  rm -rf "$DIR" /tmp/xray-sub /usr/share/xray-sub
   sed -i '/xray-sub-update.sh/d' /etc/crontabs/root 2>/dev/null || true
   /etc/init.d/cron restart 2>/dev/null || true
   say "Xray-подписка удалена. SSClash оставлен, его можно удалить из LuCI."
@@ -139,85 +139,20 @@ proxy-groups:
       - 🛡️ VPN
     include-all: true
 
-  - name: 🎮 Games
-    type: url-test
-    tolerance: 150
-    url: 'https://www.gstatic.com/generate_204'
-    interval: 300
-    include-all: true
-    exclude-filter: '(?i)АВТО|Россия'
-
-  - name: 🎮 Games (not blocked)
-    type: select
-    proxies:
-      - 🔓 Без VPN
-      - 🎮 Games
-
-  - name: PROXY
-    type: select
-    hidden: true
-    proxies:
-      - 🛡️ VPN
-
-  - name: 🔓 Без VPN
-    type: select
-    hidden: true
-    proxies:
-      - DIRECT
-
+# Раздельное туннелирование (что напрямую, что через VPN, что блокировать)
+# делает Xray по правилам из вашего Xray JSON в Remnawave — как в Happ.
+# Здесь только локальная сеть и выбор страны для YouTube.
 rule-providers:
   private-domains: {behavior: domain, type: http, format: mrs, interval: 2592000, path: ./ruleset/geosite-private.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/private.mrs'}
-  category-ru: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/category-ru.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/category-ru.mrs'}
-  whitelist: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/whitelist.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/whitelist.mrs'}
-  microsoft: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/microsoft.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/microsoft.mrs'}
-  apple: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/apple.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/apple.mrs'}
-  google-play: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/google-play.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/google-play.mrs'}
-  epicgames: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/epicgames.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/epicgames.mrs'}
-  origin: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/origin.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/origin.mrs'}
-  riot: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/riot.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/riot.mrs'}
-  escapefromtarkov: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/escapefromtarkov.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/escapefromtarkov.mrs'}
-  steam: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/steam.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/steam.mrs'}
-  twitch: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/twitch.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/twitch.mrs'}
-  pinterest: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/pinterest.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/pinterest.mrs'}
-  faceit: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/faceit.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/faceit.mrs'}
   private-ips: {behavior: ipcidr, type: http, format: mrs, interval: 2592000, path: ./ruleset/geoip-private.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geoip/release/mihomo/private.mrs'}
-  direct-ips: {behavior: ipcidr, type: http, format: mrs, interval: 86400, path: ./ruleset/direct-ips.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geoip/release/mihomo/direct.mrs'}
-  github: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/github.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/github.mrs'}
-  twitch-ads: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/twitch-ads.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/twitch-ads.mrs'}
   youtube: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/youtube.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/youtube.mrs'}
-  telegram: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/telegram.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/telegram.mrs'}
-  win-spy: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/win-spy.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/win-spy.mrs'}
-  torrent-domains: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/torrent-domains.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/torrent.mrs'}
-  roblox-domain: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/roblox-domain.mrs, url: 'https://raw.githubusercontent.com/blagodaren/blgdrn-rule-sets/main/ruleset/roblox-domain.mrs'}
-  roblox-ip: {behavior: ipcidr, type: http, format: mrs, interval: 86400, path: ./ruleset/roblox-ip.mrs, url: 'https://raw.githubusercontent.com/blagodaren/blgdrn-rule-sets/main/ruleset/roblox-ip.mrs'}
 
 rules:
   - RULE-SET,private-ips,DIRECT,no-resolve
   - IP-CIDR,::/0,REJECT-DROP,no-resolve
   - RULE-SET,private-domains,DIRECT
-  - RULE-SET,win-spy,REJECT-DROP
-  - RULE-SET,torrent-domains,DIRECT
-  - RULE-SET,google-play,PROXY
-  - RULE-SET,twitch-ads,PROXY
   - RULE-SET,youtube,📺 Youtube
-  - RULE-SET,telegram,PROXY
-  - RULE-SET,github,PROXY
-  - RULE-SET,roblox-domain,🎮 Games
-  - RULE-SET,roblox-ip,🎮 Games
-  - RULE-SET,epicgames,🎮 Games (not blocked)
-  - RULE-SET,origin,🎮 Games (not blocked)
-  - RULE-SET,riot,🎮 Games (not blocked)
-  - RULE-SET,escapefromtarkov,🎮 Games (not blocked)
-  - RULE-SET,steam,🎮 Games (not blocked)
-  - RULE-SET,faceit,🎮 Games (not blocked)
-  - RULE-SET,twitch,DIRECT
-  - RULE-SET,microsoft,DIRECT
-  - RULE-SET,apple,DIRECT
-  - RULE-SET,pinterest,DIRECT
-  - RULE-SET,category-ru,DIRECT
-  - RULE-SET,whitelist,DIRECT
-  - RULE-SET,direct-ips,DIRECT
-  - MATCH,PROXY
+  - MATCH,🛡️ VPN
 EOT
 
 # ---------- 5. Скрипт обновления подписки ----------
@@ -231,6 +166,16 @@ mkdir -p "$TMP_DIR"
 
 log() { logger -t xray-sub "$*"; echo "$*"; }
 
+# Базы geosite/geoip для правил из Xray JSON (те же, что у Happ с роутингом roscomvpn)
+GEO_DIR=/usr/share/xray-sub
+export XRAY_LOCATION_ASSET="$GEO_DIR"
+mkdir -p "$GEO_DIR"
+geo_get() {
+  if [ ! -s "$GEO_DIR/$1" ] || [ -n "$(find "$GEO_DIR/$1" -mtime +7 2>/dev/null)" ]; then
+    curl -fsSL --max-time 120 "$2" -o "$TMP_DIR/$1.new" && [ -s "$TMP_DIR/$1.new" ] \
+      && mv "$TMP_DIR/$1.new" "$GEO_DIR/$1" && log "Обновлена база $1"
+  fi
+}
 fetch() {
   curl -fsSL --max-time 30 -A "Happ/3.13.0" \
     -H "x-hwid: $HWID" -H "x-device-os: Linux" \
@@ -247,6 +192,10 @@ if ! { fetch "$SUB_URL" && is_json; }; then
   fi
 fi
 
+# Базы geo скачиваются, только если правила в подписке на них ссылаются
+grep -q '"geosite:' "$TMP_DIR/raw" && geo_get geosite.dat "https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/geosite.dat"
+grep -q '"geoip:' "$TMP_DIR/raw" && geo_get geoip.dat "https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geoip/release/geoip.dat"
+
 # Список балансеров и порты
 jq -r --argjson port "$BASE_PORT" '(if type == "array" then . else [.] end)
   | to_entries[] | "\($port + .key): \(.value.remarks // "без имени")"' \
@@ -256,6 +205,7 @@ jq -r --argjson port "$BASE_PORT" '(if type == "array" then . else [.] end)
 jq --argjson port "$BASE_PORT" --argjson mark "$MARK" '
   def pfx($p): if . == null then null else $p + . end;
   (if type == "array" then . else [.] end)
+  | (.[0].routing.domainStrategy // "AsIs") as $ds
   | [ to_entries[] | .key as $i | .value as $c | "c\($i)-" as $p | {
       inbound: {tag: "in-\($i)", listen: "127.0.0.1", port: ($port + $i), protocol: "socks",
         settings: {auth: "noauth", udp: true},
@@ -283,7 +233,7 @@ jq --argjson port "$BASE_PORT" --argjson mark "$MARK" '
       log: {loglevel: "warning"},
       inbounds: [$all[].inbound],
       outbounds: ([$all[].outbounds[]] + [{tag: "direct", protocol: "freedom", streamSettings: {sockopt: {mark: $mark}}}]),
-      routing: {domainStrategy: "AsIs", balancers: [$all[].balancers[]], rules: [$all[].rules[]]}
+      routing: {domainStrategy: $ds, balancers: [$all[].balancers[]], rules: [$all[].rules[]]}
     }
   | if ([$all[].obs[]] | length) > 0
       then .observatory = ([$all[].obsCfg | select(. != null)][0] + {subjectSelector: [$all[].obs[]]}) else . end
@@ -332,6 +282,7 @@ start_service() {
 	[ -f /etc/xray-sub/config.json ] || return 0
 	procd_open_instance
 	procd_set_param command /usr/bin/xray run -c /etc/xray-sub/config.json
+	procd_set_param env XRAY_LOCATION_ASSET=/usr/share/xray-sub
 	procd_set_param respawn 3600 5 0
 	procd_set_param stdout 1
 	procd_set_param stderr 1
