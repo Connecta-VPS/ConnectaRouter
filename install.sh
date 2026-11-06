@@ -4,6 +4,8 @@
 # Установка:
 #   wget -qO- https://raw.githubusercontent.com/Connecta-VPS/ConnectaRouter/main/install.sh | sh -s -- 'ССЫЛКА_ПОДПИСКИ'
 # Сменить подписку: запустить ту же команду с новой ссылкой.
+# Свои исключения (без VPN): домены по одному на строку в /etc/connecta/direct.list
+#   — файл не удаляется и не перезаписывается при переустановке.
 # Удаление:
 #   wget -qO- https://raw.githubusercontent.com/Connecta-VPS/ConnectaRouter/main/install.sh | sh -s -- uninstall
 
@@ -251,7 +253,16 @@ jq -r --argjson port "$BASE_PORT" '(if type == "array" then . else [.] end)
   | to_entries[]
   | "  - {name: \((.value.remarks // "Сервер \(.key)") | tojson), type: socks5, server: 127.0.0.1, port: \($port + .key), udp: true}"' \
   "$TMP_DIR/raw" > "$TMP_DIR/proxies.yaml"
-awk -v f="$TMP_DIR/proxies.yaml" '/^#PROXIES#$/ { while ((getline l < f) > 0) print l; next } { print }' \
+# Личные исключения: домены из /etc/connecta/direct.list идут без VPN (по одному на строку)
+: > "$TMP_DIR/direct.yaml"
+if [ -f /etc/connecta/direct.list ]; then
+  sed 's/#.*//; s/[[:space:]]//g; /^$/d' /etc/connecta/direct.list \
+    | while read -r d; do echo "  - DOMAIN-SUFFIX,$d,DIRECT"; done > "$TMP_DIR/direct.yaml"
+fi
+awk -v f="$TMP_DIR/proxies.yaml" -v g="$TMP_DIR/direct.yaml" '
+  /^#PROXIES#$/ { while ((getline l < f) > 0) print l; next }
+  { print }
+  /^rules:$/ { while ((getline l < g) > 0) print l }' \
   "$DIR/clash-template.yaml" > "$TMP_DIR/clash.yaml"
 
 if ! cmp -s "$TMP_DIR/config.json" "$DIR/config.json"; then
@@ -304,6 +315,7 @@ say "Загружаю подписку..."
 set +e
 /usr/bin/xray-sub-update.sh || die "Подписка не загрузилась. Проверьте ссылку и запустите /usr/bin/xray-sub-update.sh ещё раз."
 /etc/init.d/clash enable 2>/dev/null
+/etc/init.d/clash start 2>/dev/null
 
 sleep 3
 IP=$(curl -s --max-time 10 -x socks5h://127.0.0.1:10808 https://ifconfig.me)
