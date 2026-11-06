@@ -217,29 +217,49 @@ jq -r --argjson port "$BASE_PORT" '(if type == "array" then . else [.] end)
   | to_entries[] | "\($port + .key): \(.value.remarks // "без имени")"' \
   "$TMP_DIR/raw" > "$TMP_DIR/list.txt"
 
+# VLESS без TLS/Reality к публичному серверу новые версии Xray не запускают —
+# такие хосты пропускаем, чтобы один хост не ломал весь конфиг
+INSECURE_DEF='
+  def addr: (.settings.vnext[0].address // .settings.address // "");
+  def enc: (.settings.vnext[0].users[0].encryption // .settings.encryption // "none");
+  def private_addr: test("^(10\\.|127\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|localhost$)");
+  def insecure: .protocol == "vless"
+    and ((.streamSettings.security // "none") | . == "none" or . == "")
+    and (enc == "none")
+    and ((addr | private_addr) | not);
+'
+SKIPPED=$(jq -r "$INSECURE_DEF"' (if type == "array" then . else [.] end)
+  | [ .[] | (.remarks // "?") as $r | (.outbounds // [])[] | select(insecure) | "\($r) → \(addr)" ] | unique | .[]' "$TMP_DIR/raw" 2>/dev/null)
+[ -n "$SKIPPED" ] && log "Внимание: пропущены хосты VLESS без шифрования (включите TLS/Reality в панели): $(echo "$SKIPPED" | tr '\n' ';')"
+
 # Все балансеры в одном Xray: у каждого свой вход (порт) и свои теги
-jq --argjson port "$BASE_PORT" --argjson mark "$MARK" '
+jq --argjson port "$BASE_PORT" --argjson mark "$MARK" "$INSECURE_DEF"'
   def pfx($p): if . == null then null else $p + . end;
   (if type == "array" then . else [.] end)
   | (.[0].routing.domainStrategy // "AsIs") as $ds
-  | [ to_entries[] | .key as $i | .value as $c | "c\($i)-" as $p | {
+  | [ to_entries[] | .key as $i | .value as $c | "c\($i)-" as $p
+    | [ ($c.outbounds // [])[] | select(insecure | not) ] as $ob
+    | ($ob | map(.tag)) as $ok
+    | {
       inbound: {tag: "in-\($i)", listen: "127.0.0.1", port: ($port + $i), protocol: "socks",
         settings: {auth: "noauth", udp: true},
         sniffing: {enabled: true, destOverride: ["http", "tls", "quic"], routeOnly: true}},
-      outbounds: [ ($c.outbounds // [])[]
+      outbounds: [ $ob[]
         | .tag |= pfx($p)
         | if .proxySettings.tag then .proxySettings.tag |= pfx($p) else . end
         | .streamSettings = ((.streamSettings // {}) | .sockopt = ((.sockopt // {}) + {mark: $mark}))
         | if .streamSettings.sockopt.dialerProxy then .streamSettings.sockopt.dialerProxy |= pfx($p) else . end ],
       balancers: [ ($c.routing.balancers // [])[]
+        | if .fallbackTag and (.fallbackTag as $f | $ok | index([$f]) | not) then del(.fallbackTag) else . end
         | .tag |= pfx($p) | .selector |= map($p + .)
         | if .fallbackTag then .fallbackTag |= pfx($p) else . end ],
       rules: ([ ($c.routing.rules // [])[] | select(.inboundTag == null)
+        | select(.outboundTag == null or (.outboundTag as $t | $ok | index([$t])))
         | .inboundTag = ["in-\($i)"]
         | if .outboundTag then .outboundTag |= pfx($p) else . end
         | if .balancerTag then .balancerTag |= pfx($p) else . end ]
         + [ {type: "field", inboundTag: ["in-\($i)"],
-             outboundTag: (($c.outbounds // [])[0].tag | if . == null then "direct" else $p + . end)} ]),
+             outboundTag: ($ob[0].tag | if . == null then "direct" else $p + . end)} ]),
       obs: (($c.observatory.subjectSelector // []) | map($p + .)),
       bobs: (($c.burstObservatory.subjectSelector // []) | map($p + .)),
       obsCfg: $c.observatory,
