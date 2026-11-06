@@ -142,16 +142,31 @@ proxy-groups:
 
 # Раздельное туннелирование (что напрямую, что через VPN, что блокировать)
 # делает Xray по правилам из вашего Xray JSON в Remnawave — как в Happ.
-# Здесь только локальная сеть и выбор страны для YouTube.
+# Здесь: локальная сеть, Steam и игры напрямую, выбор страны для YouTube.
 rule-providers:
   private-domains: {behavior: domain, type: http, format: mrs, interval: 2592000, path: ./ruleset/geosite-private.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/private.mrs'}
   private-ips: {behavior: ipcidr, type: http, format: mrs, interval: 2592000, path: ./ruleset/geoip-private.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geoip/release/mihomo/private.mrs'}
   youtube: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/youtube.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/youtube.mrs'}
+  steam: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/steam.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/steam.mrs'}
+  epicgames: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/epicgames.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/epicgames.mrs'}
+  riot: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/riot.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/riot.mrs'}
+  origin: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/origin.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/origin.mrs'}
+  escapefromtarkov: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/escapefromtarkov.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/escapefromtarkov.mrs'}
+  faceit: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/faceit.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/faceit.mrs'}
 
 rules:
   - RULE-SET,private-ips,DIRECT,no-resolve
   - IP-CIDR,::/0,REJECT-DROP,no-resolve
   - RULE-SET,private-domains,DIRECT
+  # Steam и игры — без VPN (домены + игровые серверы Valve и Riot по сетям)
+  - RULE-SET,steam,DIRECT
+  - RULE-SET,epicgames,DIRECT
+  - RULE-SET,riot,DIRECT
+  - RULE-SET,origin,DIRECT
+  - RULE-SET,escapefromtarkov,DIRECT
+  - RULE-SET,faceit,DIRECT
+  - IP-ASN,32590,DIRECT,no-resolve
+  - IP-ASN,6507,DIRECT,no-resolve
   - RULE-SET,youtube,📺 Youtube
   - MATCH,🛡️ VPN
 EOT
