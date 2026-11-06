@@ -4,8 +4,7 @@
 # Установка:
 #   wget -qO- https://raw.githubusercontent.com/Connecta-VPS/ConnectaRouter/main/install.sh | sh -s -- 'ССЫЛКА_ПОДПИСКИ'
 # Сменить подписку: запустить ту же команду с новой ссылкой.
-# Свои исключения (без VPN): домены по одному на строку в /etc/connecta/direct.list
-#   — файл не удаляется и не перезаписывается при переустановке.
+# Свои исключения (без VPN): connecta add сайт.ru | connecta del сайт.ru | connecta list
 # Удаление:
 #   wget -qO- https://raw.githubusercontent.com/Connecta-VPS/ConnectaRouter/main/install.sh | sh -s -- uninstall
 
@@ -22,7 +21,7 @@ die() { echo "!!! $*" >&2; exit 1; }
 if [ "$SUB_URL" = "uninstall" ]; then
   /etc/init.d/xray-sub stop 2>/dev/null || true
   /etc/init.d/xray-sub disable 2>/dev/null || true
-  rm -f /etc/init.d/xray-sub /usr/bin/xray-sub-update.sh
+  rm -f /etc/init.d/xray-sub /usr/bin/xray-sub-update.sh /usr/bin/connecta
   rm -rf "$DIR" /tmp/xray-sub /usr/share/xray-sub
   sed -i '/xray-sub-update.sh/d' /etc/crontabs/root 2>/dev/null || true
   /etc/init.d/cron restart 2>/dev/null || true
@@ -282,6 +281,47 @@ log "Готово. Серверы: $(tr '\n' ';' < "$TMP_DIR/list.txt")"
 EOS
 chmod +x /usr/bin/xray-sub-update.sh
 
+# ---------- 5b. Команда connecta для исключений ----------
+cat > /usr/bin/connecta <<'EOC'
+#!/bin/sh
+# connecta add <сайт>   — сайт пойдёт без VPN
+# connecta del <сайт>   — снова через VPN
+# connecta list         — список исключений
+LIST=/etc/connecta/direct.list
+mkdir -p /etc/connecta; touch "$LIST"
+
+clean() {  # https://www.site.ru/page?x=1 -> site.ru
+  echo "$1" | tr 'A-Z' 'a-z' | sed -E 's#^[a-z]+://##; s#[/:?\#].*$##; s#^www\.##'
+}
+apply() { /usr/bin/xray-sub-update.sh >/dev/null 2>&1 && echo "Применено." || echo "Сохранено, применится при следующем обновлении подписки."; }
+
+case "$1" in
+  add)
+    [ -n "$2" ] || { echo "Пример: connecta add sberbank.ru"; exit 1; }
+    shift
+    for a in "$@"; do
+      d=$(clean "$a"); [ -n "$d" ] || continue
+      if grep -qx "$d" "$LIST"; then echo "Уже в списке: $d"; else echo "$d" >> "$LIST"; echo "Без VPN: $d"; fi
+    done
+    apply ;;
+  del|rm)
+    [ -n "$2" ] || { echo "Пример: connecta del sberbank.ru"; exit 1; }
+    shift
+    for a in "$@"; do
+      d=$(clean "$a")
+      if grep -qx "$d" "$LIST"; then sed -i "/^$(echo "$d" | sed 's/\./\\./g')\$/d" "$LIST"; echo "Снова через VPN: $d"; else echo "Нет в списке: $d"; fi
+    done
+    apply ;;
+  list|ls)
+    if [ -s "$LIST" ]; then echo "Без VPN:"; sed 's/^/  • /' "$LIST"; else echo "Список исключений пуст."; fi ;;
+  *)
+    echo "connecta add <сайт>   — сайт пойдёт без VPN"
+    echo "connecta del <сайт>   — снова через VPN"
+    echo "connecta list         — список исключений" ;;
+esac
+EOC
+chmod +x /usr/bin/connecta
+
 # ---------- 6. Служба Xray ----------
 cat > /etc/init.d/xray-sub <<'EOF'
 #!/bin/sh /etc/rc.common
@@ -326,3 +366,4 @@ else
 fi
 LANIP=$(uci -q get network.lan.ipaddr | cut -d/ -f1)
 say "Панель управления: http://${LANIP:-IP-роутера}:9090/ui"
+say "Сайт без VPN: connecta add сайт.ru   (список: connecta list)"
