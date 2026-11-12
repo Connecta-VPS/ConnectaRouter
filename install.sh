@@ -136,7 +136,19 @@ proxies:
 proxy-groups:
   - name: 🛡️ VPN
     type: select
+    proxies:
+      - ♻️ Авто с резервом
     include-all: true
+
+  # Работает через «🌀 АВТО-ВЫБОР» (первый в подписке). Если он перестал отвечать —
+  # сам переключается на следующую живую страну, а когда АВТО оживёт — возвращается.
+  - name: ♻️ Авто с резервом
+    type: fallback
+    include-all: true
+    exclude-filter: '(?i)Россия'
+    url: 'https://www.gstatic.com/generate_204'
+    interval: 120
+    timeout: 5000
 
   - name: 📺 Youtube
     type: select
@@ -162,6 +174,16 @@ rules:
   - RULE-SET,private-ips,DIRECT,no-resolve
   - IP-CIDR,::/0,REJECT-DROP,no-resolve
   - RULE-SET,private-domains,DIRECT
+  # Проверки интернета в телефонах и ноутбуках — напрямую, чтобы при сбое VPN
+  # устройства не писали «Нет доступа к интернету» и не отключались от Wi-Fi
+  - DOMAIN,connectivitycheck.gstatic.com,DIRECT
+  - DOMAIN,connectivitycheck.android.com,DIRECT
+  - DOMAIN,www.gstatic.com,DIRECT
+  - DOMAIN,clients3.google.com,DIRECT
+  - DOMAIN-SUFFIX,msftconnecttest.com,DIRECT
+  - DOMAIN-SUFFIX,msftncsi.com,DIRECT
+  - DOMAIN,captive.apple.com,DIRECT
+  - DOMAIN,detectportal.firefox.com,DIRECT
   # Steam и игры — без VPN (домены + игровые серверы Valve и Riot по IP)
   - RULE-SET,steam,DIRECT
   - RULE-SET,epicgames,DIRECT
