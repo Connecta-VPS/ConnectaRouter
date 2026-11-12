@@ -56,8 +56,12 @@ command -v jq   >/dev/null 2>&1 || die "jq не установился"
 # ---------- 2. SSClash ----------
 if [ ! -x /etc/init.d/clash ]; then
   say "Устанавливаю SSClash и ядро Mihomo..."
-  wget --no-proxy -qO- https://github.com/zerolabnet/SSClash/raw/refs/heads/main/install-ssclash.sh | ash
-  [ -x /etc/init.d/clash ] || die "SSClash не установился"
+  curl -fsSL --retry 3 -o /tmp/install-ssclash.sh \
+    https://raw.githubusercontent.com/zerolabnet/SSClash/main/install-ssclash.sh \
+    || die "Не удалось скачать установщик SSClash (нет доступа к GitHub?)"
+  ash /tmp/install-ssclash.sh || true
+  rm -f /tmp/install-ssclash.sh
+  [ -x /etc/init.d/clash ] || die "SSClash не установился. Смотрите вывод выше."
 else
   say "SSClash уже установлен"
 fi
