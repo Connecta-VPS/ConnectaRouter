@@ -162,15 +162,41 @@ rules:
   - RULE-SET,private-ips,DIRECT,no-resolve
   - IP-CIDR,::/0,REJECT-DROP,no-resolve
   - RULE-SET,private-domains,DIRECT
-  # Steam и игры — без VPN (домены + игровые серверы Valve и Riot по сетям)
+  # Steam и игры — без VPN (домены + игровые серверы Valve и Riot по IP)
   - RULE-SET,steam,DIRECT
   - RULE-SET,epicgames,DIRECT
   - RULE-SET,riot,DIRECT
   - RULE-SET,origin,DIRECT
   - RULE-SET,escapefromtarkov,DIRECT
   - RULE-SET,faceit,DIRECT
-  - IP-ASN,32590,DIRECT,no-resolve
-  - IP-ASN,6507,DIRECT,no-resolve
+  # Игровые серверы Valve (Dota 2, CS2) — AS32590
+  - IP-CIDR,45.121.184.0/22,DIRECT,no-resolve
+  - IP-CIDR,103.10.124.0/23,DIRECT,no-resolve
+  - IP-CIDR,103.28.54.0/23,DIRECT,no-resolve
+  - IP-CIDR,146.66.152.0/21,DIRECT,no-resolve
+  - IP-CIDR,155.133.224.0/19,DIRECT,no-resolve
+  - IP-CIDR,162.254.192.0/21,DIRECT,no-resolve
+  - IP-CIDR,185.25.180.0/22,DIRECT,no-resolve
+  - IP-CIDR,192.69.96.0/22,DIRECT,no-resolve
+  - IP-CIDR,205.196.6.0/24,DIRECT,no-resolve
+  - IP-CIDR,208.64.200.0/22,DIRECT,no-resolve
+  - IP-CIDR,208.78.164.0/22,DIRECT,no-resolve
+  # Игровые серверы Riot (Valorant, LoL) — AS6507
+  - IP-CIDR,43.229.64.0/22,DIRECT,no-resolve
+  - IP-CIDR,45.7.36.0/22,DIRECT,no-resolve
+  - IP-CIDR,45.250.208.0/22,DIRECT,no-resolve
+  - IP-CIDR,103.219.128.0/22,DIRECT,no-resolve
+  - IP-CIDR,103.240.224.0/22,DIRECT,no-resolve
+  - IP-CIDR,104.160.128.0/19,DIRECT,no-resolve
+  - IP-CIDR,138.0.12.0/22,DIRECT,no-resolve
+  - IP-CIDR,151.106.246.0/23,DIRECT,no-resolve
+  - IP-CIDR,151.106.248.0/22,DIRECT,no-resolve
+  - IP-CIDR,151.106.252.0/23,DIRECT,no-resolve
+  - IP-CIDR,151.106.254.0/24,DIRECT,no-resolve
+  - IP-CIDR,162.249.72.0/21,DIRECT,no-resolve
+  - IP-CIDR,185.40.64.0/22,DIRECT,no-resolve
+  - IP-CIDR,192.64.168.0/21,DIRECT,no-resolve
+  - IP-CIDR,192.207.0.0/24,DIRECT,no-resolve
   - RULE-SET,youtube,📺 Youtube
   - MATCH,🛡️ VPN
 EOT
