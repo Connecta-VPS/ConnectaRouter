@@ -134,10 +134,12 @@ proxies:
 #PROXIES#
 
 proxy-groups:
+#CUSTOM_GROUPS#
   - name: 🛡️ VPN
     type: select
     proxies:
       - ♻️ Авто с резервом
+      - ⚡ Самый быстрый
     include-all: true
 
   # Работает через «🌀 АВТО-ВЫБОР» (первый в подписке). Если он перестал отвечать —
@@ -150,19 +152,37 @@ proxy-groups:
     interval: 120
     timeout: 5000
 
+  # Постоянно замеряет задержку и держит самую быструю страну (кроме России)
+  - name: ⚡ Самый быстрый
+    type: url-test
+    include-all: true
+    exclude-filter: '(?i)Россия'
+    url: 'https://www.gstatic.com/generate_204'
+    interval: 300
+    tolerance: 50
+
   - name: 📺 Youtube
     type: select
     proxies:
       - 🛡️ VPN
     include-all: true
 
+  - name: 💬 Telegram
+    type: select
+    proxies:
+      - ⚡ Самый быстрый
+      - 🛡️ VPN
+    include-all: true
+
 # Раздельное туннелирование (что напрямую, что через VPN, что блокировать)
 # делает Xray по правилам из вашего Xray JSON в Remnawave — как в Happ.
-# Здесь: локальная сеть, Steam и игры напрямую, выбор страны для YouTube.
+# Здесь: локальная сеть, Steam и игры напрямую, отдельные группы для YouTube и Telegram.
+# Свои группы и правила: /etc/connecta/groups.yaml и /etc/connecta/rules.yaml
 rule-providers:
   private-domains: {behavior: domain, type: http, format: mrs, interval: 2592000, path: ./ruleset/geosite-private.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/private.mrs'}
   private-ips: {behavior: ipcidr, type: http, format: mrs, interval: 2592000, path: ./ruleset/geoip-private.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geoip/release/mihomo/private.mrs'}
   youtube: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/youtube.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/youtube.mrs'}
+  telegram: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/telegram.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/telegram.mrs'}
   steam: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/steam.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/steam.mrs'}
   epicgames: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/epicgames.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/epicgames.mrs'}
   riot: {behavior: domain, type: http, format: mrs, interval: 86400, path: ./ruleset/riot.mrs, url: 'https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite/release/mihomo/riot.mrs'}
@@ -219,6 +239,17 @@ rules:
   - IP-CIDR,185.40.64.0/22,DIRECT,no-resolve
   - IP-CIDR,192.64.168.0/21,DIRECT,no-resolve
   - IP-CIDR,192.207.0.0/24,DIRECT,no-resolve
+  # Telegram — отдельная группа (по умолчанию самый быстрый сервер)
+  - RULE-SET,telegram,💬 Telegram
+  - IP-CIDR,91.108.56.0/22,💬 Telegram,no-resolve
+  - IP-CIDR,91.108.4.0/22,💬 Telegram,no-resolve
+  - IP-CIDR,91.108.8.0/22,💬 Telegram,no-resolve
+  - IP-CIDR,91.108.16.0/22,💬 Telegram,no-resolve
+  - IP-CIDR,91.108.12.0/22,💬 Telegram,no-resolve
+  - IP-CIDR,149.154.160.0/20,💬 Telegram,no-resolve
+  - IP-CIDR,91.105.192.0/23,💬 Telegram,no-resolve
+  - IP-CIDR,91.108.20.0/22,💬 Telegram,no-resolve
+  - IP-CIDR,185.76.151.0/24,💬 Telegram,no-resolve
   - RULE-SET,youtube,📺 Youtube
   - MATCH,🛡️ VPN
 EOT
@@ -345,11 +376,28 @@ if [ -f /etc/connecta/direct.list ]; then
   sed 's/#.*//; s/[[:space:]]//g; /^$/d' /etc/connecta/direct.list \
     | while read -r d; do echo "  - DOMAIN-SUFFIX,$d,DIRECT"; done > "$TMP_DIR/direct.yaml"
 fi
-awk -v f="$TMP_DIR/proxies.yaml" -v g="$TMP_DIR/direct.yaml" '
-  /^#PROXIES#$/ { while ((getline l < f) > 0) print l; next }
-  { print }
-  /^rules:$/ { while ((getline l < g) > 0) print l }' \
-  "$DIR/clash-template.yaml" > "$TMP_DIR/clash.yaml"
+# Свои группы и правила (не перезаписываются): /etc/connecta/groups.yaml, /etc/connecta/rules.yaml
+build_clash() {  # $1 = 1 — со своими группами и правилами, 0 — без них
+  : > "$TMP_DIR/cgroups.yaml"; : > "$TMP_DIR/crules.yaml"
+  if [ "$1" = 1 ]; then
+    [ -f /etc/connecta/groups.yaml ] && cp /etc/connecta/groups.yaml "$TMP_DIR/cgroups.yaml"
+    [ -f /etc/connecta/rules.yaml ] && cp /etc/connecta/rules.yaml "$TMP_DIR/crules.yaml"
+  fi
+  awk -v f="$TMP_DIR/proxies.yaml" -v g="$TMP_DIR/direct.yaml" \
+      -v cg="$TMP_DIR/cgroups.yaml" -v cr="$TMP_DIR/crules.yaml" '
+    /^#PROXIES#$/ { while ((getline l < f) > 0) print l; next }
+    /^#CUSTOM_GROUPS#$/ { while ((getline l < cg) > 0) print l; next }
+    { print }
+    /^rules:$/ { while ((getline l < g) > 0) print l; while ((getline l < cr) > 0) print l }' \
+    "$DIR/clash-template.yaml" > "$TMP_DIR/clash.yaml"
+}
+build_clash 1
+if [ -s "$TMP_DIR/cgroups.yaml" ] || [ -s "$TMP_DIR/crules.yaml" ]; then
+  if [ -x /opt/clash/bin/clash ] && ! /opt/clash/bin/clash -d /opt/clash -f "$TMP_DIR/clash.yaml" -t >"$TMP_DIR/clash-test.log" 2>&1; then
+    log "Внимание: ошибка в /etc/connecta/groups.yaml или rules.yaml — применяю без них. Подробности: $TMP_DIR/clash-test.log"
+    build_clash 0
+  fi
+fi
 
 if ! cmp -s "$TMP_DIR/config.json" "$DIR/config.json"; then
   cp "$TMP_DIR/config.json" "$DIR/config.json"
