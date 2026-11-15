@@ -568,13 +568,14 @@ EOF
 chmod +x /etc/init.d/xray-sub
 /etc/init.d/xray-sub enable
 
-# ---------- 7. Автообновление подписки (каждые 6 часов) ----------
+# ---------- 7. Расписание: подписка (по умолчанию каждые 6 часов) и обновление скрипта ----------
+# Если расписание уже есть (в т.ч. изменённое пользователем) — не трогаем его
 touch /etc/crontabs/root
-sed -i '/xray-sub-update.sh/d' /etc/crontabs/root
-echo "0 */6 * * * /usr/bin/xray-sub-update.sh >/dev/null 2>&1" >> /etc/crontabs/root
+grep -q 'xray-sub-update.sh' /etc/crontabs/root || \
+  echo "0 */6 * * * /usr/bin/xray-sub-update.sh >/dev/null 2>&1" >> /etc/crontabs/root
 # Проверка обновлений скрипта — каждую ночь в 4:xx
-sed -i '/connecta-autoupdate/d' /etc/crontabs/root
-echo "$(awk 'BEGIN{srand(); print int(rand()*60)}') 4 * * * /usr/bin/connecta-autoupdate.sh >/dev/null 2>&1" >> /etc/crontabs/root
+grep -q 'connecta-autoupdate' /etc/crontabs/root || \
+  echo "$(awk 'BEGIN{srand(); print int(rand()*60)}') 4 * * * /usr/bin/connecta-autoupdate.sh >/dev/null 2>&1" >> /etc/crontabs/root
 /etc/init.d/cron enable 2>/dev/null || true
 /etc/init.d/cron restart 2>/dev/null || true
 
