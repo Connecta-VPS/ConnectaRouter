@@ -7,6 +7,12 @@
 # Свои исключения (без VPN): connecta add сайт.ru | connecta del сайт.ru | connecta list
 # Удаление:
 #   wget -qO- https://raw.githubusercontent.com/Connecta-VPS/ConnectaRouter/main/install.sh | sh -s -- uninstall
+#
+# АВТООБНОВЛЕНИЕ: роутеры раз в сутки (ночью) проверяют этот файл на GitHub.
+# Чтобы обновление доехало до всех — УВЕЛИЧЬТЕ число VERSION ниже (например, дата + номер).
+# Если после обновления VPN на роутере не заработает, роутер сам откатится на прошлую версию.
+
+VERSION=2026111501
 
 set -e
 
@@ -21,9 +27,9 @@ die() { echo "!!! $*" >&2; exit 1; }
 if [ "$SUB_URL" = "uninstall" ]; then
   /etc/init.d/xray-sub stop 2>/dev/null || true
   /etc/init.d/xray-sub disable 2>/dev/null || true
-  rm -f /etc/init.d/xray-sub /usr/bin/xray-sub-update.sh /usr/bin/connecta
+  rm -f /etc/init.d/xray-sub /usr/bin/xray-sub-update.sh /usr/bin/connecta /usr/bin/connecta-autoupdate.sh
   rm -rf "$DIR" /tmp/xray-sub /usr/share/xray-sub
-  sed -i '/xray-sub-update.sh/d' /etc/crontabs/root 2>/dev/null || true
+  sed -i '/xray-sub-update.sh/d; /connecta-autoupdate/d' /etc/crontabs/root 2>/dev/null || true
   /etc/init.d/cron restart 2>/dev/null || true
   say "Xray-подписка удалена. SSClash оставлен, его можно удалить из LuCI."
   exit 0
@@ -81,6 +87,9 @@ say "HWID роутера: $HWID"
 # ---------- 4. Шаблон конфига SSClash ----------
 # Строка #PROXIES# заменяется списком балансеров из подписки
 cat > "$DIR/clash-template.yaml" <<'EOT'
+# ⚠️ ЭТОТ ФАЙЛ СОБИРАЕТСЯ АВТОМАТИЧЕСКИ при каждом обновлении подписки — ручные правки будут стёрты!
+# Сайты без VPN:        connecta add сайт.ru        (список: connecta list)
+# Свои группы/правила:  /etc/connecta/groups.yaml и /etc/connecta/rules.yaml
 mode: rule
 tproxy-port: 7894
 ipv6: false
@@ -194,6 +203,17 @@ rules:
   - RULE-SET,private-ips,DIRECT,no-resolve
   - IP-CIDR,::/0,REJECT-DROP,no-resolve
   - RULE-SET,private-domains,DIRECT
+  # Российское ТВ и видео (Wink и др.) — напрямую: телеканалы работают только с российского IP
+  - DOMAIN-SUFFIX,wink.ru,DIRECT
+  - DOMAIN-SUFFIX,wink.am,DIRECT
+  - DOMAIN-SUFFIX,zabava.tv,DIRECT
+  - DOMAIN-SUFFIX,restream.ru,DIRECT
+  - DOMAIN-SUFFIX,restream-media.net,DIRECT
+  - DOMAIN-SUFFIX,ngenix.net,DIRECT
+  - DOMAIN-SUFFIX,mediavitrina.ru,DIRECT
+  - DOMAIN-SUFFIX,vitrina.tv,DIRECT
+  - DOMAIN-SUFFIX,more.tv,DIRECT
+  - DOMAIN-SUFFIX,rt.ru,DIRECT
   # Проверки интернета в телефонах и ноутбуках — напрямую, чтобы при сбое VPN
   # устройства не писали «Нет доступа к интернету» и не отключались от Wi-Fi
   - DOMAIN,connectivitycheck.gstatic.com,DIRECT
@@ -449,13 +469,83 @@ case "$1" in
     apply ;;
   list|ls)
     if [ -s "$LIST" ]; then echo "Без VPN:"; sed 's/^/  • /' "$LIST"; else echo "Список исключений пуст."; fi ;;
+  update)
+    /usr/bin/connecta-autoupdate.sh now ;;
+  autoupdate)
+    case "$2" in
+      off) touch /etc/connecta/no-autoupdate; echo "Автообновление выключено." ;;
+      on)  rm -f /etc/connecta/no-autoupdate; echo "Автообновление включено." ;;
+      *)   echo "connecta autoupdate on | off" ;;
+    esac ;;
+  version)
+    echo "Версия: $(cat /etc/xray-sub/version 2>/dev/null || echo неизвестна)"
+    if [ -f /etc/connecta/no-autoupdate ]; then echo "Автообновление: выключено"; else echo "Автообновление: включено (каждую ночь)"; fi ;;
   *)
-    echo "connecta add <сайт>   — сайт пойдёт без VPN"
-    echo "connecta del <сайт>   — снова через VPN"
-    echo "connecta list         — список исключений" ;;
+    echo "connecta add <сайт>        — сайт пойдёт без VPN"
+    echo "connecta del <сайт>        — снова через VPN"
+    echo "connecta list              — список исключений"
+    echo "connecta update            — обновить скрипт с GitHub прямо сейчас"
+    echo "connecta autoupdate on|off — включить/выключить автообновление"
+    echo "connecta version           — версия и статус автообновления" ;;
 esac
 EOC
 chmod +x /usr/bin/connecta
+
+# ---------- 5c. Автообновление скрипта с GitHub ----------
+cat > /usr/bin/connecta-autoupdate.sh <<'EOU'
+#!/bin/sh
+# Раз в сутки проверяет install.sh на GitHub. Если VERSION там больше установленной —
+# ставит обновление, проверяет, что VPN работает, а если нет — откатывается назад.
+DIR=/etc/xray-sub
+URL=https://raw.githubusercontent.com/Connecta-VPS/ConnectaRouter/main/install.sh
+TMP=/tmp/connecta-upd
+log() { logger -t connecta-update "$*"; echo "$*"; }
+
+[ -f /etc/connecta/no-autoupdate ] && [ "$1" != "now" ] && exit 0
+. "$DIR/settings" || exit 1
+# Разносим обновления роутеров по времени (до 30 минут), чтобы не все сразу
+[ "$1" = "now" ] || sleep "$(awk 'BEGIN{srand(); print int(rand()*1800)}')"
+
+mkdir -p "$TMP"
+curl -fsSL --max-time 60 "$URL?t=$(date +%s)" -o "$TMP/install.sh" || { log "Не удалось скачать обновление"; exit 1; }
+REMOTE=$(sed -n 's/^VERSION=\([0-9][0-9]*\).*/\1/p' "$TMP/install.sh" | head -1)
+LOCAL=$(cat "$DIR/version" 2>/dev/null || echo 0)
+SKIP=$(cat "$DIR/skip-version" 2>/dev/null || echo 0)
+[ -n "$REMOTE" ] || { log "В скачанном файле нет VERSION, пропускаю"; exit 1; }
+if [ "$REMOTE" -le "$LOCAL" ]; then
+  [ "$1" = "now" ] && log "Уже установлена последняя версия ($LOCAL)"
+  exit 0
+fi
+if [ "$REMOTE" = "$SKIP" ] && [ "$1" != "now" ]; then exit 0; fi
+sh -n "$TMP/install.sh" || { log "Файл обновления $REMOTE повреждён, пропускаю"; exit 1; }
+
+log "Обновляю: $LOCAL -> $REMOTE"
+tar -czf "$TMP/backup.tgz" /etc/xray-sub /usr/bin/xray-sub-update.sh /usr/bin/connecta \
+  /usr/bin/connecta-autoupdate.sh /etc/init.d/xray-sub /opt/clash/config.yaml /etc/crontabs/root 2>/dev/null
+
+ok=0
+if sh "$TMP/install.sh" "$SUB_URL" > "$TMP/install.log" 2>&1; then
+  sleep 20
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -x socks5h://127.0.0.1:10808 https://www.gstatic.com/generate_204)
+  if [ "$code" = 204 ] && { /etc/init.d/clash running 2>/dev/null || pidof clash >/dev/null || pidof mihomo >/dev/null; }; then
+    ok=1
+  fi
+fi
+
+if [ "$ok" = 1 ]; then
+  rm -f "$DIR/skip-version"
+  log "Обновлено до версии $REMOTE"
+else
+  log "Версия $REMOTE не прошла проверку — откатываю. Лог: $TMP/install.log"
+  tar -xzf "$TMP/backup.tgz" -C /
+  echo "$REMOTE" > "$DIR/skip-version"
+  /etc/init.d/cron restart 2>/dev/null
+  /etc/init.d/xray-sub restart 2>/dev/null
+  /etc/init.d/clash restart 2>/dev/null
+  exit 1
+fi
+EOU
+chmod +x /usr/bin/connecta-autoupdate.sh
 
 # ---------- 6. Служба Xray ----------
 cat > /etc/init.d/xray-sub <<'EOF'
@@ -482,6 +572,9 @@ chmod +x /etc/init.d/xray-sub
 touch /etc/crontabs/root
 sed -i '/xray-sub-update.sh/d' /etc/crontabs/root
 echo "0 */6 * * * /usr/bin/xray-sub-update.sh >/dev/null 2>&1" >> /etc/crontabs/root
+# Проверка обновлений скрипта — каждую ночь в 4:xx
+sed -i '/connecta-autoupdate/d' /etc/crontabs/root
+echo "$(awk 'BEGIN{srand(); print int(rand()*60)}') 4 * * * /usr/bin/connecta-autoupdate.sh >/dev/null 2>&1" >> /etc/crontabs/root
 /etc/init.d/cron enable 2>/dev/null || true
 /etc/init.d/cron restart 2>/dev/null || true
 
@@ -489,6 +582,7 @@ echo "0 */6 * * * /usr/bin/xray-sub-update.sh >/dev/null 2>&1" >> /etc/crontabs/
 say "Загружаю подписку..."
 set +e
 /usr/bin/xray-sub-update.sh || die "Подписка не загрузилась. Проверьте ссылку и запустите /usr/bin/xray-sub-update.sh ещё раз."
+echo "$VERSION" > "$DIR/version"
 /etc/init.d/clash enable 2>/dev/null
 /etc/init.d/clash start 2>/dev/null
 
@@ -502,3 +596,4 @@ fi
 LANIP=$(uci -q get network.lan.ipaddr | cut -d/ -f1)
 say "Панель управления: http://${LANIP:-IP-роутера}:9090/ui"
 say "Сайт без VPN: connecta add сайт.ru   (список: connecta list)"
+say "Версия $VERSION, автообновление включено (connecta version)"
