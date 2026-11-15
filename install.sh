@@ -12,7 +12,7 @@
 # Чтобы обновление доехало до всех — УВЕЛИЧЬТЕ число VERSION ниже (например, дата + номер).
 # Если после обновления VPN на роутере не заработает, роутер сам откатится на прошлую версию.
 
-VERSION=2026111501
+VERSION=2026111504
 
 set -e
 
@@ -156,7 +156,7 @@ proxy-groups:
   - name: ♻️ Авто с резервом
     type: fallback
     include-all: true
-    exclude-filter: '(?i)Россия'
+    exclude-filter: '(?i)Россия|БС'
     url: 'https://www.gstatic.com/generate_204'
     interval: 120
     timeout: 5000
@@ -165,7 +165,7 @@ proxy-groups:
   - name: ⚡ Самый быстрый
     type: url-test
     include-all: true
-    exclude-filter: '(?i)Россия'
+    exclude-filter: '(?i)Россия|БС'
     url: 'https://www.gstatic.com/generate_204'
     interval: 300
     tolerance: 50
@@ -181,6 +181,7 @@ proxy-groups:
     proxies:
       - ⚡ Самый быстрый
       - 🛡️ VPN
+      - DIRECT
     include-all: true
 
 # Раздельное туннелирование (что напрямую, что через VPN, что блокировать)
@@ -214,6 +215,7 @@ rules:
   - DOMAIN-SUFFIX,vitrina.tv,DIRECT
   - DOMAIN-SUFFIX,more.tv,DIRECT
   - DOMAIN-SUFFIX,rt.ru,DIRECT
+  - DOMAIN-SUFFIX,nowdrm.co,DIRECT
   # Проверки интернета в телефонах и ноутбуках — напрямую, чтобы при сбое VPN
   # устройства не писали «Нет доступа к интернету» и не отключались от Wi-Fi
   - DOMAIN,connectivitycheck.gstatic.com,DIRECT
@@ -394,7 +396,13 @@ jq -r --argjson port "$BASE_PORT" '(if type == "array" then . else [.] end)
 : > "$TMP_DIR/direct.yaml"
 if [ -f /etc/connecta/direct.list ]; then
   sed 's/#.*//; s/[[:space:]]//g; /^$/d' /etc/connecta/direct.list \
-    | while read -r d; do echo "  - DOMAIN-SUFFIX,$d,DIRECT"; done > "$TMP_DIR/direct.yaml"
+    | while read -r d; do
+        case "$d" in
+          *[!0-9./]*) echo "  - DOMAIN-SUFFIX,$d,DIRECT" ;;
+          */*)        echo "  - IP-CIDR,$d,DIRECT,no-resolve" ;;
+          *)          echo "  - IP-CIDR,$d/32,DIRECT,no-resolve" ;;
+        esac
+      done > "$TMP_DIR/direct.yaml"
 fi
 # Свои группы и правила (не перезаписываются): /etc/connecta/groups.yaml, /etc/connecta/rules.yaml
 build_clash() {  # $1 = 1 — со своими группами и правилами, 0 — без них
@@ -445,8 +453,13 @@ cat > /usr/bin/connecta <<'EOC'
 LIST=/etc/connecta/direct.list
 mkdir -p /etc/connecta; touch "$LIST"
 
-clean() {  # https://www.site.ru/page?x=1 -> site.ru
-  echo "$1" | tr 'A-Z' 'a-z' | sed -E 's#^[a-z]+://##; s#[/:?\#].*$##; s#^www\.##'
+clean() {  # https://www.site.ru/page?x=1 -> site.ru ; 1.2.3.4:443 -> 1.2.3.4 ; 1.2.3.0/24 остаётся
+  x=$(echo "$1" | tr 'A-Z' 'a-z' | sed -E 's#^[a-z]+://##')
+  if echo "$x" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}(/[0-9]{1,2})?(:[0-9]+)?$'; then
+    echo "$x" | sed -E 's#:[0-9]+$##'
+  else
+    echo "$x" | sed -E 's#[/:?\#].*$##; s#^www\.##'
+  fi
 }
 apply() { /usr/bin/xray-sub-update.sh >/dev/null 2>&1 && echo "Применено." || echo "Сохранено, применится при следующем обновлении подписки."; }
 
@@ -456,7 +469,7 @@ case "$1" in
     shift
     for a in "$@"; do
       d=$(clean "$a"); [ -n "$d" ] || continue
-      if grep -qx "$d" "$LIST"; then echo "Уже в списке: $d"; else echo "$d" >> "$LIST"; echo "Без VPN: $d"; fi
+      if grep -qxF "$d" "$LIST"; then echo "Уже в списке: $d"; else echo "$d" >> "$LIST"; echo "Без VPN: $d"; fi
     done
     apply ;;
   del|rm)
@@ -464,7 +477,7 @@ case "$1" in
     shift
     for a in "$@"; do
       d=$(clean "$a")
-      if grep -qx "$d" "$LIST"; then sed -i "/^$(echo "$d" | sed 's/\./\\./g')\$/d" "$LIST"; echo "Снова через VPN: $d"; else echo "Нет в списке: $d"; fi
+      if grep -qxF "$d" "$LIST"; then grep -vxF "$d" "$LIST" > "$LIST.tmp"; mv "$LIST.tmp" "$LIST"; echo "Снова через VPN: $d"; else echo "Нет в списке: $d"; fi
     done
     apply ;;
   list|ls)
@@ -481,7 +494,7 @@ case "$1" in
     echo "Версия: $(cat /etc/xray-sub/version 2>/dev/null || echo неизвестна)"
     if [ -f /etc/connecta/no-autoupdate ]; then echo "Автообновление: выключено"; else echo "Автообновление: включено (каждую ночь)"; fi ;;
   *)
-    echo "connecta add <сайт>        — сайт пойдёт без VPN"
+    echo "connecta add <сайт или IP> — сайт или адрес пойдёт без VPN"
     echo "connecta del <сайт>        — снова через VPN"
     echo "connecta list              — список исключений"
     echo "connecta update            — обновить скрипт с GitHub прямо сейчас"

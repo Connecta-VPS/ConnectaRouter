@@ -73,7 +73,7 @@ wget -qO- https://raw.githubusercontent.com/Connecta-VPS/ConnectaRouter/main/ins
 | 🛡️ **VPN** | Основная группа. Можно вручную выбрать страну |
 | ♻️ **Авто с резервом** | По умолчанию. Работает через автовыбор, а если он перестал отвечать — сам переключается на другую страну |
 | ⚡ **Самый быстрый** | Постоянно замеряет задержку и держит самую быструю страну |
-| 💬 **Telegram** | Отдельный выбор для Telegram. По умолчанию — самый быстрый сервер |
+| 💬 **Telegram** | Отдельный выбор для Telegram. По умолчанию — самый быстрый сервер. **DIRECT** — Telegram без VPN (например, если у вас свой прокси в Telegram) |
 | 📺 **Youtube** | Отдельный выбор страны для YouTube |
 
 ---
@@ -105,6 +105,7 @@ connecta add example.com
 | Действие | Команда |
 |---|---|
 | Сайт без VPN | `connecta add example.com` |
+| IP-адрес или подсеть без VPN | `connecta add 1.2.3.4` или `connecta add 1.2.3.0/24` |
 | Несколько сразу | `connecta add site1.ru site2.ru` |
 | Вернуть через VPN | `connecta del example.com` |
 | Посмотреть список | `connecta list` |
