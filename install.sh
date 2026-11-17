@@ -12,7 +12,7 @@
 # Чтобы обновление доехало до всех — УВЕЛИЧЬТЕ число VERSION ниже (например, дата + номер).
 # Если после обновления VPN на роутере не заработает, роутер сам откатится на прошлую версию.
 
-VERSION=2026111504
+VERSION=2026111505
 
 set -e
 
@@ -216,6 +216,8 @@ rules:
   - DOMAIN-SUFFIX,more.tv,DIRECT
   - DOMAIN-SUFFIX,rt.ru,DIRECT
   - DOMAIN-SUFFIX,nowdrm.co,DIRECT
+  # Защита российских сайтов от ботов (S7 и др.) — должна видеть тот же российский IP, что и сам сайт
+  - DOMAIN-SUFFIX,servicepipe.tech,DIRECT
   # Проверки интернета в телефонах и ноутбуках — напрямую, чтобы при сбое VPN
   # устройства не писали «Нет доступа к интернету» и не отключались от Wi-Fi
   - DOMAIN,connectivitycheck.gstatic.com,DIRECT
