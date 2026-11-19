@@ -213,9 +213,8 @@ cat /tmp/xray-sub/test.log
 
 <div align="center">
 
-**Connecta VPS** · сделано для OpenWrt
+<b>Connecta VPS</b> · <a href="https://connectavpn.com">connectavpn.com</a> · сделано для OpenWrt
 
 <sub>Использует <a href="https://github.com/XTLS/Xray-core">Xray-core</a>, <a href="https://github.com/zerolabnet/ssclash">SSClash</a> и <a href="https://github.com/MetaCubeX/mihomo">Mihomo</a></sub>
 
 </div>
-**Connecta VPS** · [connectavpn.com](https://connectavpn.com) · сделано для OpenWrt
