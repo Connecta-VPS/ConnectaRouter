@@ -12,7 +12,7 @@
 </div>
 
 ---
-
+> 🌐 Подробная инструкция для пользователей Connecta с ответами на частые вопросы: **[connectavpn.com/vpn-dlya-routera](https://connectavpn.com/vpn-dlya-routera)**
 ## ✨ Возможности
 
 - ⚡ **Установка одной командой** — пакеты, SSClash, ядро Mihomo и Xray ставятся автоматически
@@ -218,3 +218,4 @@ cat /tmp/xray-sub/test.log
 <sub>Использует <a href="https://github.com/XTLS/Xray-core">Xray-core</a>, <a href="https://github.com/zerolabnet/ssclash">SSClash</a> и <a href="https://github.com/MetaCubeX/mihomo">Mihomo</a></sub>
 
 </div>
+**Connecta VPS** · [connectavpn.com](https://connectavpn.com) · сделано для OpenWrt
